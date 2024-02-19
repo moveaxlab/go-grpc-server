@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package internal;
+
+option go_package = "github.com/moveaxlab/go-grpc-server/internal";
+
+message Input {
+    string value = 1;
+}
+
+message Output {
+    string value = 1;
+}
+
+service TestService {
+    rpc Endpoint(Input) returns (Output);
+}

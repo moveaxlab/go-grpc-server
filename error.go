@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type BusinessError interface {
+type ApplicationError interface {
 	GRPCStatus() *status.Status
 	Trailer() metadata.MD
 }
@@ -22,12 +22,12 @@ func ErrorInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 		return resp, nil
 	}
 
-	if businessError, ok := err.(BusinessError); ok {
-		err = grpc.SetTrailer(ctx, businessError.Trailer())
+	if applicationError, ok := err.(ApplicationError); ok {
+		err = grpc.SetTrailer(ctx, applicationError.Trailer())
 		if err != nil {
 			panic(fmt.Errorf("failed to encode error info: %w", err))
 		}
-		return nil, businessError.GRPCStatus().Err()
+		return nil, applicationError.GRPCStatus().Err()
 	}
 
 	if errorCounter != nil {
