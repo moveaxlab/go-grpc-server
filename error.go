@@ -17,6 +17,11 @@ type ApplicationError interface {
 	Trailer() metadata.MD
 }
 
+func IsApplicationError(err error) bool {
+	var applicationError ApplicationError
+	return errors.As(err, &applicationError)
+}
+
 // NewErrorInterceptor creates an interceptor that serializes application errors.
 //
 // Adding this interceptor adds a prometheus metric that counts application errors.

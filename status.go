@@ -8,7 +8,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func StatusInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func StatusInterceptor(
+	ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (resp interface{}, err error) {
 	resp, err = handler(ctx, req)
 
 	if err == nil {

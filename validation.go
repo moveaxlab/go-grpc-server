@@ -3,7 +3,6 @@ package grpc_server
 import (
 	"context"
 
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -23,10 +22,6 @@ func ValidationInterceptor(
 			log.
 				WithField("request", req).
 				Errorf("validation failed on %s: %v", info.FullMethod, validationError)
-
-			if applicationErrorCounter != nil {
-				applicationErrorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
-			}
 
 			st := status.Convert(validationError)
 
