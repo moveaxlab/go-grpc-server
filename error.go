@@ -2,6 +2,7 @@ package grpc_server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -43,7 +44,9 @@ func NewErrorInterceptor() grpc.UnaryServerInterceptor {
 			return resp, nil
 		}
 
-		if applicationError, ok := err.(ApplicationError); ok {
+		var applicationError ApplicationError
+
+		if errors.As(err, &applicationError) {
 			applicationErrorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
 
 			err = grpc.SetTrailer(ctx, applicationError.Trailer())

@@ -80,6 +80,34 @@ func TestErrorInterceptor(t *testing.T) {
 		assert.Equal(t, []string{"APPLICATION_ERROR"}, md["code"])
 	})
 
+	t.Run("handles application panics", func(t *testing.T) {
+		client, mockServer, cleanup := setupTestServer(t, NewErrorInterceptor(), RecoverInterceptor)
+		defer cleanup()
+
+		ctx := context.Background()
+
+		applicationError := &testApplicationError{
+			message:  "Failed",
+			grpcCode: codes.InvalidArgument,
+			code:     "APPLICATION_ERROR",
+		}
+
+		mockServer.On("Endpoint", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			panic(applicationError)
+		})
+
+		var md metadata.MD
+
+		_, err := client.Endpoint(ctx, &internal.Input{Value: "Hello"}, grpc.Trailer(&md))
+
+		assert.NotNil(t, err)
+		grpcErr, ok := err.(GRPCStatus)
+		assert.True(t, ok)
+		assert.Equal(t, "Failed", grpcErr.GRPCStatus().Message())
+		assert.Equal(t, codes.InvalidArgument, grpcErr.GRPCStatus().Code())
+		assert.Equal(t, []string{"APPLICATION_ERROR"}, md["code"])
+	})
+
 	t.Run("does nothing on other errors", func(t *testing.T) {
 		client, mockServer, cleanup := setupTestServer(t, NewErrorInterceptor())
 		defer cleanup()

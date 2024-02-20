@@ -2,6 +2,7 @@ package grpc_server
 
 import (
 	"context"
+	"errors"
 
 	"github.com/getsentry/sentry-go"
 	"google.golang.org/grpc"
@@ -15,11 +16,13 @@ func NewSentryInterceptor(getUserId func(ctx context.Context) (string, bool)) gr
 		handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
 		resp, err = handler(ctx, req)
-		if err == nil {
+
+		var applicationError ApplicationError
+
+		if err == nil || errors.As(err, &applicationError) {
 			return resp, nil
 		}
 
-		// capture internal errors on sentry
 		sentry.WithScope(func(scope *sentry.Scope) {
 			if userId, hasUser := getUserId(ctx); hasUser {
 				scope.SetUser(sentry.User{
