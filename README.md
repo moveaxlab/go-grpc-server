@@ -18,45 +18,45 @@ This package provides utilities to create, start, and stop gRPC servers.
 package main
 
 import (
-    "fmt"
-    "os"
+	"fmt"
+	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
-    "github.com/moveaxlab/go-grpc-server"
+	"github.com/moveaxlab/go-grpc-server"
 )
 
 func main() {
-    server := grpc_server.NewGrpcServer(40051)
-    wg := &sync.WaitGroup{}
-    channel := make(chan os.Signal, 1)
+	server := grpc_server.NewGrpcServer(40051)
+	wg := &sync.WaitGroup{}
+	channel := make(chan os.Signal, 1)
 
-    // register your gRPC services
-    var myService mypackage.MyServiceServer
-    // initialize the myService variable
-    mypackage.RegisterMyServiceServer(server.GetServer(), myService)
+	// register your gRPC services
+	var myService mypackage.MyServiceServer
+	// initialize the myService variable
+	mypackage.RegisterMyServiceServer(server.GetServer(), myService)
 
-    // start the server
-    server.Start()
+	// start the server
+	server.Start()
 
-    // stop the server gracefully
-    signal.Notify(channel, syscall.SIGINT)
+	// stop the server gracefully
+	signal.Notify(channel, syscall.SIGINT)
 	signal.Notify(channel, syscall.SIGTERM)
 
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        select {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
 		case <-channel:
-            err := server.Stop()
-            if err != nil {
-                fmt.Printf("server stop returned an error: %v", err)
-            }
+			err := server.Stop()
+			if err != nil {
+				fmt.Printf("server stop returned an error: %v", err)
+			}
 		}
 
-    }()
-    wg.Wait()
+	}()
+	wg.Wait()
 }
 ```
 
@@ -157,18 +157,18 @@ import (
 )
 
 func SecurityInterceptor(
-    ctx context.Context,
-    req interface{},
-    info *grpc.UnaryServerInfo,
-    handler grpc.UnaryHandler,
+	ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
 ) (resp interface{}, err error) {
-    md, hasMetadata := metadata.FromIncomingContext(ctx)
+	md, hasMetadata := metadata.FromIncomingContext(ctx)
 
-    if hasMetadata {
-        ctx = AddUserToContext(ctx, md)
-    }
+	if hasMetadata {
+		ctx = AddUserToContext(ctx, md)
+	}
 
-    return handler(ctx, req)
+	return handler(ctx, req)
 }
 ```
 
@@ -179,41 +179,41 @@ that sends non-application errors to Sentry and tracks user info:
 import (
 	"context"
 
-    "github.com/moveaxlab/go-grpc-server"
+	"github.com/moveaxlab/go-grpc-server"
 	"github.com/getsentry/sentry-go"
 	"google.golang.org/grpc"
 )
 
 func SentryInterceptor(
-    ctx context.Context,
-    req interface{},
-    info *grpc.UnaryServerInfo,
-    handler grpc.UnaryHandler,
+	ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
 ) (resp interface{}, err error) {
-    resp, err = handler(ctx, req)
+	resp, err = handler(ctx, req)
 
-    // skip reporting application errors to sentry
-    if err == nil || grpc_server.IsApplicationError(err) {
-        return resp, nil
-    }
+	// skip reporting application errors to sentry
+	if err == nil || grpc_server.IsApplicationError(err) {
+		return resp, nil
+	}
 
-    sentry.WithScope(func(scope *sentry.Scope) {
-        // your custom logic to retrieve the user from the context
-        if user, hasUser := GetUser(ctx); hasUser {
-            scope.SetUser(sentry.User{
-                ID: user.Id(),
-            })
-        }
+	sentry.WithScope(func(scope *sentry.Scope) {
+		// your custom logic to retrieve the user from the context
+		if user, hasUser := GetUser(ctx); hasUser {
+			scope.SetUser(sentry.User{
+				ID: user.Id(),
+			})
+		}
 
-        scope.SetExtras(map[string]interface{}{
-            "endpoint": info.FullMethod,
-            "request":  req,
-        })
+		scope.SetExtras(map[string]interface{}{
+			"endpoint": info.FullMethod,
+			"request":  req,
+		})
 
-        sentry.CaptureException(err)
-    })
+		sentry.CaptureException(err)
+	})
 
-    return nil, err
+	return nil, err
 }
 ```
 
