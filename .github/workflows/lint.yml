@@ -12,8 +12,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: jdx/mise-action@v2
-      tool_versions: |
-        go 1.21
+      with:
+        tool_versions: |
+          go 1.21
     - uses: jdx/mise-action@v2
       with:
         experimental: true
