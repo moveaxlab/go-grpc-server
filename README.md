@@ -6,7 +6,7 @@ and functions to start and stop the gRPC server.
 
 ## Installation
 
-```go
+```bash
 go get github.com/moveaxlab/go-grpc-server
 ```
 

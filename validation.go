@@ -24,8 +24,8 @@ func ValidationInterceptor(
 				WithField("request", req).
 				Errorf("validation failed on %s: %v", info.FullMethod, validationError)
 
-			if errorCounter != nil {
-				errorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
+			if applicationErrorCounter != nil {
+				applicationErrorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
 			}
 
 			st := status.Convert(validationError)

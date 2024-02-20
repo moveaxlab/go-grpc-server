@@ -2,54 +2,101 @@ package grpc_server
 
 import (
 	"context"
-	"net"
+	"fmt"
 	"testing"
 
 	"github.com/moveaxlab/go-grpc-server/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
+type testApplicationError struct {
+	message  string
+	grpcCode codes.Code
+	code     string
+}
+
+type GRPCStatus interface {
+	GRPCStatus() *status.Status
+}
+
+func (e *testApplicationError) Error() string {
+	return e.message
+}
+
+func (e *testApplicationError) GRPCStatus() *status.Status {
+	return status.New(e.grpcCode, e.message)
+}
+
+func (e *testApplicationError) Trailer() metadata.MD {
+	return metadata.New(map[string]string{
+		"code": e.code,
+	})
+}
+
 func TestErrorInterceptor(t *testing.T) {
-	server := grpc.NewServer(grpc.UnaryInterceptor(ErrorInterceptor))
-	listener := bufconn.Listen(1024 * 1024)
-	cc, err := grpc.DialContext(
-		context.Background(),
-		"",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return listener.Dial()
-		}),
-	)
-	assert.Nil(t, err)
+	t.Run("works when there is no error", func(t *testing.T) {
+		client, mockServer, cleanup := setupTestServer(t, NewErrorInterceptor())
+		defer cleanup()
 
-	mockServer := &internal.MockTestServiceServer{}
+		ctx := context.Background()
 
-	internal.RegisterTestServiceServer(server, mockServer)
+		mockServer.On("Endpoint", mock.Anything, mock.Anything).Return(&internal.Output{Value: "World"}, nil)
 
-	go func() {
-		err := server.Serve(listener)
+		res, err := client.Endpoint(ctx, &internal.Input{Value: "Hello"})
+
 		assert.Nil(t, err)
-	}()
 
-	defer func() {
-		server.GracefulStop()
-		err := cc.Close()
-		assert.Nil(t, err)
-	}()
+		assert.Equal(t, "World", res.Value)
+	})
 
-	client := internal.NewTestServiceClient(cc)
+	t.Run("handles application errors", func(t *testing.T) {
+		client, mockServer, cleanup := setupTestServer(t, NewErrorInterceptor())
+		defer cleanup()
 
-	ctx := context.Background()
+		ctx := context.Background()
 
-	mockServer.On("Endpoint", mock.Anything, mock.Anything).Return(&internal.Output{Value: "World"}, nil)
+		applicationError := &testApplicationError{
+			message:  "Failed",
+			grpcCode: codes.InvalidArgument,
+			code:     "APPLICATION_ERROR",
+		}
 
-	res, err := client.Endpoint(ctx, &internal.Input{Value: "Hello"})
+		mockServer.On("Endpoint", mock.Anything, mock.Anything).Return(nil, applicationError)
 
-	assert.Nil(t, err)
+		var md metadata.MD
 
-	assert.Equal(t, "World", res.Value)
+		_, err := client.Endpoint(ctx, &internal.Input{Value: "Hello"}, grpc.Trailer(&md))
+
+		assert.NotNil(t, err)
+		grpcErr, ok := err.(GRPCStatus)
+		assert.True(t, ok)
+		assert.Equal(t, "Failed", grpcErr.GRPCStatus().Message())
+		assert.Equal(t, codes.InvalidArgument, grpcErr.GRPCStatus().Code())
+		assert.Equal(t, []string{"APPLICATION_ERROR"}, md["code"])
+	})
+
+	t.Run("does nothing on other errors", func(t *testing.T) {
+		client, mockServer, cleanup := setupTestServer(t, NewErrorInterceptor())
+		defer cleanup()
+
+		ctx := context.Background()
+
+		mockServer.On("Endpoint", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("random error"))
+
+		var md metadata.MD
+
+		_, err := client.Endpoint(ctx, &internal.Input{Value: "Hello"}, grpc.Trailer(&md))
+
+		assert.NotNil(t, err)
+		grpcErr, ok := err.(GRPCStatus)
+		assert.True(t, ok)
+		assert.Equal(t, "random error", grpcErr.GRPCStatus().Message())
+		assert.Equal(t, codes.Unknown, grpcErr.GRPCStatus().Code())
+		assert.Nil(t, md["code"])
+	})
 }

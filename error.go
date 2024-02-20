@@ -11,28 +11,49 @@ import (
 )
 
 type ApplicationError interface {
+	error
 	GRPCStatus() *status.Status
 	Trailer() metadata.MD
 }
 
-func ErrorInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	resp, err = handler(ctx, req)
-
-	if err == nil {
-		return resp, nil
+// NewErrorInterceptor creates an interceptor that serializes application errors.
+//
+// Adding this interceptor adds a prometheus metric that counts application errors.
+//
+// Your application code should return errors implementing the ApplicationError
+// interface.
+func NewErrorInterceptor() grpc.UnaryServerInterceptor {
+	if applicationErrorCounter == nil {
+		applicationErrorCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "grpc",
+			Name:      "request_application_error_count_total",
+			Help:      "Counter for failed gRPC requests with application errors",
+		}, []string{"endpoint"})
 	}
 
-	if applicationError, ok := err.(ApplicationError); ok {
-		err = grpc.SetTrailer(ctx, applicationError.Trailer())
-		if err != nil {
-			panic(fmt.Errorf("failed to encode error info: %w", err))
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (resp interface{}, err error) {
+		resp, err = handler(ctx, req)
+
+		if err == nil {
+			return resp, nil
 		}
-		return nil, applicationError.GRPCStatus().Err()
-	}
 
-	if errorCounter != nil {
-		errorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
-	}
+		if applicationError, ok := err.(ApplicationError); ok {
+			applicationErrorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
 
-	return nil, err
+			err = grpc.SetTrailer(ctx, applicationError.Trailer())
+			if err != nil {
+				panic(fmt.Errorf("failed to encode error info: %w", err))
+			}
+
+			return nil, applicationError.GRPCStatus().Err()
+		}
+
+		return nil, err
+	}
 }

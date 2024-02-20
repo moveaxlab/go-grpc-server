@@ -15,6 +15,31 @@ func NewMetricsInterceptor(excluded ...string) grpc.UnaryServerInterceptor {
 		ignoredEndpoints[endpoint] = true
 	}
 
+	if requestTimesMonitor == nil {
+		requestTimesMonitor = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Subsystem: "grpc",
+			Name:      "request_time_ms",
+			Help:      "Time to serve gRPC requests in milliseconds",
+			Buckets:   prometheus.ExponentialBuckets(16, 2, 10),
+		}, []string{"endpoint"})
+	}
+
+	if requestCounter == nil {
+		requestCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "grpc",
+			Name:      "request_count_total",
+			Help:      "Counter for received gRPC requests",
+		}, []string{"endpoint"})
+	}
+
+	if errorCounter == nil {
+		errorCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "grpc",
+			Name:      "request_error_count_total",
+			Help:      "Counter for failed gRPC requests",
+		}, []string{"endpoint"})
+	}
+
 	return func(
 		ctx context.Context,
 		req interface{},
@@ -41,7 +66,7 @@ func NewMetricsInterceptor(excluded ...string) grpc.UnaryServerInterceptor {
 			return resp, nil
 		}
 
-		failureCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
+		errorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
 
 		log.
 			WithField("request", req).
