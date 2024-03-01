@@ -41,8 +41,9 @@ func NewGrpcServer(port int, interceptors ...grpc.UnaryServerInterceptor) GrpcSe
 	healthgrpc.RegisterHealthServer(grpcServer, healthcheck)
 
 	return &listener{
-		server: grpcServer,
-		port:   port,
+		server:      grpcServer,
+		port:        port,
+		healthcheck: healthcheck,
 	}
 }
 
