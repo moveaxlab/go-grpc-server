@@ -20,7 +20,7 @@ func ValidationInterceptor(
 
 		if validationError != nil {
 			log.
-				WithField("request", req).
+				WithField("request", Redact(req)).
 				Errorf("validation failed on %s: %v", info.FullMethod, validationError)
 
 			st := status.Convert(validationError)

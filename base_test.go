@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/moveaxlab/go-grpc-server/internal"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -50,4 +51,13 @@ func setupTestServer(
 	client = internal.NewTestServiceClient(cc)
 
 	return client, mockServer, cleanup
+}
+
+func loggedRequest(t *testing.T, hook *logrustest.Hook) map[string]interface{} {
+	t.Helper()
+	entry := hook.LastEntry()
+	assert.NotNil(t, entry)
+	req, ok := entry.Data["request"].(map[string]interface{})
+	assert.True(t, ok, "logged request should be a redacted map, got %T", entry.Data["request"])
+	return req
 }

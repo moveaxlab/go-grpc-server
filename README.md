@@ -134,6 +134,28 @@ a list of endpoints that will be ignored.
 This can be used if you don't want to track metrics on certain endpoints,
 e.g. for the health check endpoint.
 
+### Redacting sensitive data from logs
+
+The interceptors that log the incoming request on failure
+(`NewMetricsInterceptor()`, `ValidationInterceptor`, and `RecoverInterceptor`)
+redact sensitive fields first, replacing their values with `***` and recursing
+into nested messages, lists, and maps. A field is sensitive when its schema
+declares the standard protobuf
+[`debug_redact`](https://protobuf.dev/programming-guides/proto3/#fieldoptions)
+option:
+
+```proto
+message LoginRequest {
+    string username = 1;
+    string password = 2 [debug_redact = true];
+}
+```
+
+Redaction is opt-in per field: unannotated fields are logged as-is. Go does not
+act on `debug_redact` on its own, so this package reads it explicitly. In custom
+interceptors, use `grpc_server.Redact(req)` to apply the same redaction (see the
+Sentry example below).
+
 ### Unhandled errors
 
 The `grpc_server.StatusInterceptor` adds the internal status code to responses
@@ -207,7 +229,8 @@ func SentryInterceptor(
 
 		scope.SetExtras(map[string]interface{}{
 			"endpoint": info.FullMethod,
-			"request":  req,
+			// Redact sensitive fields before sending the request to Sentry.
+			"request": grpc_server.Redact(req),
 		})
 
 		sentry.CaptureException(err)

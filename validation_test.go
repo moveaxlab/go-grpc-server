@@ -2,13 +2,24 @@ package grpc_server
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/moveaxlab/go-grpc-server/internal"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
+
+type validatingSensitiveInput struct {
+	*internal.SensitiveInput
+}
+
+func (v *validatingSensitiveInput) Validate(bool) error {
+	return fmt.Errorf("invalid")
+}
 
 func TestValidation(t *testing.T) {
 	t.Run("returns a validation error if input is invalid", func(t *testing.T) {
@@ -38,5 +49,23 @@ func TestValidation(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Equal(t, "World", res.Value)
+	})
+
+	t.Run("validation interceptor redacts the logged request", func(t *testing.T) {
+		hook := logrustest.NewGlobal()
+		defer hook.Reset()
+
+		info := &grpc.UnaryServerInfo{FullMethod: "/internal.TestService/Endpoint"}
+		req := &validatingSensitiveInput{
+			SensitiveInput: &internal.SensitiveInput{Username: "alice", Password: "hunter2"},
+		}
+		handler := func(context.Context, interface{}) (interface{}, error) { return nil, nil }
+
+		_, err := ValidationInterceptor(context.Background(), req, info, handler)
+
+		assert.NotNil(t, err)
+		logged := loggedRequest(t, hook)
+		assert.Equal(t, "alice", logged["username"])
+		assert.Equal(t, redactedPlaceholder, logged["password"])
 	})
 }
