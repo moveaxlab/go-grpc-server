@@ -69,7 +69,7 @@ func NewMetricsInterceptor(excluded ...string) grpc.UnaryServerInterceptor {
 		errorCounter.With(prometheus.Labels{"endpoint": info.FullMethod}).Inc()
 
 		log.
-			WithField("request", req).
+			WithField("request", Redact(req)).
 			Errorf("request failed on %s: %v", info.FullMethod, err)
 
 		return nil, err

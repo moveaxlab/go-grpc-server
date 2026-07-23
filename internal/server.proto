@@ -12,6 +12,23 @@ message Output {
     string value = 1;
 }
 
+message Nested {
+    string public = 1;
+    string secret = 2 [debug_redact = true];
+}
+
+message SensitiveInput {
+    string username = 1;
+    string password = 2 [debug_redact = true];
+    Nested nested = 3;
+    repeated Nested items = 4;
+    map<string, Nested> by_key = 5;
+    int64 pin = 6 [debug_redact = true];
+    repeated string tokens = 7 [debug_redact = true];
+    map<string, string> secrets = 8 [debug_redact = true];
+    Nested secret_nested = 9 [debug_redact = true];
+}
+
 service TestService {
     rpc Endpoint(Input) returns (Output);
 }

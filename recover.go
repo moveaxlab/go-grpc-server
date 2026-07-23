@@ -21,7 +21,7 @@ func RecoverInterceptor(
 
 			if recoveredErr != nil {
 				log.
-					WithField("request", req).
+					WithField("request", Redact(req)).
 					WithField("stack_trace", string(debug.Stack())).
 					Errorf("recovered a panic on %s: %v", info.FullMethod, recoveredErr)
 
