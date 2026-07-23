@@ -8,6 +8,9 @@ import (
 
 const redactedPlaceholder = "***"
 
+// Redact returns a loggable copy of req with all fields marked debug_redact replaced.
+//
+// If req is not a proto.Message it is returned unchanged.
 func Redact(req interface{}) interface{} {
 	msg, ok := req.(proto.Message)
 	if !ok {
