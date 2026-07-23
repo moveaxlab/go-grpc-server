@@ -156,6 +156,17 @@ act on `debug_redact` on its own, so this package reads it explicitly. In custom
 interceptors, use `grpc_server.Redact(req)` to apply the same redaction (see the
 Sentry example below).
 
+When `debug_redact` is set on a message, repeated, or map field, the whole field
+collapses to a single `***` (rather than being walked into), so neither the
+contents nor the shape (number of entries, inner field names) leak. To redact
+sensitive fields *inside* a message or collection instead, annotate those fields
+on the inner message and leave the containing field unannotated.
+
+Redaction only ever touches fields that are actually present in the request.
+Fields left at their proto3 default (an empty string, a zero number, an empty
+list or map) are omitted from the logged output entirely — so an empty field
+marked `debug_redact` shows nothing at all rather than `***`.
+
 ### Unhandled errors
 
 The `grpc_server.StatusInterceptor` adds the internal status code to responses

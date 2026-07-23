@@ -44,6 +44,18 @@ func TestRedact(t *testing.T) {
 		}, out)
 	})
 
+	t.Run("a message field marked debug_redact collapses to a single placeholder", func(t *testing.T) {
+		out := Redact(&internal.SensitiveInput{
+			Username:     "alice",
+			SecretNested: &internal.Nested{Public: "p", Secret: "s"},
+		})
+
+		assert.Equal(t, map[string]interface{}{
+			"username":      "alice",
+			"secret_nested": redactedPlaceholder,
+		}, out)
+	})
+
 	t.Run("debug_redact is honored inside nested messages", func(t *testing.T) {
 		out := Redact(&internal.SensitiveInput{
 			Nested: &internal.Nested{Public: "ok", Secret: "s3cr3t"},
@@ -54,6 +66,20 @@ func TestRedact(t *testing.T) {
 				"public": "ok",
 				"secret": redactedPlaceholder,
 			},
+		}, out)
+	})
+
+	t.Run("repeated and map fields marked debug_redact collapse to a single placeholder", func(t *testing.T) {
+		out := Redact(&internal.SensitiveInput{
+			Username: "alice",
+			Tokens:   []string{"a", "b"},
+			Secrets:  map[string]string{"first": "x", "second": "y"},
+		})
+
+		assert.Equal(t, map[string]interface{}{
+			"username": "alice",
+			"tokens":   redactedPlaceholder,
+			"secrets":  redactedPlaceholder,
 		}, out)
 	})
 

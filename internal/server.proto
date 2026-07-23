@@ -24,6 +24,9 @@ message SensitiveInput {
     repeated Nested items = 4;
     map<string, Nested> by_key = 5;
     int64 pin = 6 [debug_redact = true];
+    repeated string tokens = 7 [debug_redact = true];
+    map<string, string> secrets = 8 [debug_redact = true];
+    Nested secret_nested = 9 [debug_redact = true];
 }
 
 service TestService {
